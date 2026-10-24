@@ -1,21 +1,23 @@
 # EventHub API
 
-EventHub is a backend REST API for an event ticketing platform built with Django and Django REST Framework (DRF).
+EventHub is a REST API for an event ticketing platform built with Python, Django, and Django REST Framework (DRF).
 
-It allows users to create and browse events, reserve seats, cancel reservations, and check event availability.
+The API allows users to create and browse events, reserve seats, cancel reservations, filter records, and check event availability. It includes input validation, seat availability management, request logging middleware, and automated API tests.
+
+**GitHub Repository:** https://github.com/khushityaagi/EventHub
 
 ## Features
 
 - Create, retrieve, update, and delete events.
 - Filter events by status and venue.
-- Create and list reservations.
+- Create, retrieve, update, and list reservations.
 - Validate reservation seat counts and event status.
-- Prevent reservations that exceed the currently available seat count.
-- Cancel reservations and restore seats.
+- Reject reservations that exceed available seats.
+- Cancel reservations and restore reserved seats.
 - Filter reservations by event ID.
 - Count confirmed reservations for each event.
-- Log HTTP requests, response status codes, and request duration.
-- Automated API tests using Django REST Framework's `APITestCase`.
+- Log HTTP methods, request paths, response status codes, and request duration.
+- Run automated API tests using Django REST Framework's `APITestCase`.
 
 ## Technology Stack
 
@@ -34,63 +36,65 @@ git clone https://github.com/khushityaagi/EventHub.git
 cd EventHub
 ```
 
-### 2. Create a virtual environment
+### 2. Create and activate a virtual environment
 
-```bash
+Create the environment:
+
+```powershell
 python -m venv venv
 ```
 
-### 3. Activate the virtual environment
-
-Windows PowerShell:
+Activate it on Windows PowerShell:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-### 4. Install dependencies
+### 3. Install dependencies
 
-```bash
+```powershell
 python -m pip install -r requirements.txt
 ```
 
-### 5. Configure the Django secret key
+### 4. Configure the Django secret key
 
-Set the `DJANGO_SECRET_KEY` environment variable if your settings require it.
+**Required:** The project expects the `DJANGO_SECRET_KEY` environment variable to be set before running Django management commands, including migrations and the development server.
 
-Generate a development secret key using:
+Generate a development secret key:
 
 ```powershell
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-Set the generated value in your current PowerShell session:
+Copy the generated value and set it in your current PowerShell session:
 
 ```powershell
 $env:DJANGO_SECRET_KEY = "paste-generated-key-here"
 ```
 
-Never commit your secret key to GitHub.
+Replace the placeholder with the generated value. Keep the key private and never commit it to GitHub.
 
-### 6. Apply database migrations
+This environment variable applies to the current terminal session. If you open a new terminal, set it again.
 
-```bash
+### 5. Apply database migrations
+
+```powershell
 python manage.py migrate
 ```
 
-### 7. Run the development server
+### 6. Run the development server
 
-```bash
+```powershell
 python manage.py runserver
 ```
 
-The API is available at:
+The API server will be available at:
 
 `http://127.0.0.1:8000/`
 
 ## API Endpoints
 
-All endpoints use the `/api/` prefix.
+All API endpoints use the `/api/` prefix.
 
 ### Events
 
@@ -104,10 +108,8 @@ All endpoints use the `/api/` prefix.
 
 **Filtering examples**
 
-- `/api/events/?status=upcoming`
-- `/api/events/?venue=Agra`
-
-The venue filter performs a case-insensitive partial match.
+- `/api/events/?status=upcoming` — filter events by status.
+- `/api/events/?venue=Agra` — filter events by a case-insensitive partial venue match.
 
 ### Reservations
 
@@ -126,7 +128,9 @@ The venue filter performs a case-insensitive partial match.
 
 ### Create an Event
 
-Request: `POST /api/events/`
+**Request:** `POST /api/events/`
+
+Example JSON body:
 
 ```json
 {
@@ -139,9 +143,13 @@ Request: `POST /api/events/`
 }
 ```
 
+A successful request returns `201 Created` with the event details.
+
 ### Create a Reservation
 
-Request: `POST /api/reservations/`
+**Request:** `POST /api/reservations/`
+
+Example JSON body:
 
 ```json
 {
@@ -152,62 +160,87 @@ Request: `POST /api/reservations/`
 }
 ```
 
-A successful reservation returns `201 Created` and deducts the requested seats from the event's availability.
+A successful reservation returns `201 Created`, creates a confirmed reservation, and deducts the requested number of seats from the event's available seats.
+
+The `event` value must reference an existing event.
 
 ### Cancel a Reservation
 
-Request: `POST /api/reservations/1/cancel/`
+**Request:** `POST /api/reservations/1/cancel/`
 
 No request body is required.
 
-A successful cancellation returns the updated reservation and restores its reserved seats. Repeated cancellation requests return `400 Bad Request`.
+A successful cancellation returns the updated reservation with status `cancelled` and restores the reserved seats. Repeated cancellation attempts return `400 Bad Request`.
 
 ## Validation and Error Handling
 
-The API validates seat counts and event status before accepting reservations.
+The API validates event data and reservation requests before accepting them.
 
 Examples of rejected requests include:
 
 - Reserving fewer than one seat.
 - Reserving more seats than are available.
-- Reserving seats for an event that is not upcoming or ongoing.
+- Reserving seats for an event that is neither upcoming nor ongoing.
 - Creating an event with zero total seats.
 - Providing negative available seats.
 - Setting available seats above total seats.
 - Cancelling an already-cancelled reservation.
 
-Invalid requests return an appropriate `400 Bad Request` response.
+Invalid requests return `400 Bad Request` with error details.
+
+## Postman Evidence
+
+The following screenshots demonstrate the three required API scenarios. Open each image to view the request and response.
+
+1. **Successful reservation — 201 Created**
+
+   ![Successful reservation](screenshot/01_successful_reservation.png)
+
+   [View successful reservation screenshot](screenshot/01_successful_reservation.png)
+
+2. **Overbooking rejected — 400 Bad Request**
+
+   ![Overbooking failure](screenshot/02_overbooking_failure.png)
+
+   [View overbooking failure screenshot](screenshot/02_overbooking_failure.png)
+
+3. **Successful cancellation — 200 OK**
+
+   ![Successful cancellation](screenshot/03_successful_cancellation.png)
+
+   [View successful cancellation screenshot](screenshot/03_successful_cancellation.png)
 
 ## Automated Testing
 
 Run the automated API tests with:
 
-```bash
+```powershell
 python manage.py test events
 ```
 
-The current test suite contains 14 tests covering event listing, filtering, seat validation, reservation creation, overbooking, cancellation, seat restoration, and reservation counts.
+The current test suite contains 14 tests covering event listing and filtering, event seat validation, reservation creation, overbooking rejection, cancellation, seat restoration, and reservation counts.
 
-The tests have passed in the development environment. Run them again after making changes to verify the current code.
+All 14 tests passed in the development environment during verification.
 
 ## Request Logging Middleware
 
-`RequestLoggingMiddleware` records the HTTP method, request path, response status code, and request duration. Logs are written to the configured console logger.
+`RequestLoggingMiddleware` records the HTTP method, request path, response status code, and request duration. Logs are written through the configured console logger.
 
 ## Design Decision
 
-Seat availability is updated as part of reservation creation rather than being managed separately by the API view. This keeps the booking operation close to the reservation's validation and creation logic.
+Seat availability updates are handled within the reservation creation logic, keeping booking validation and seat deduction close to reservation creation.
 
-Database transactions and row-locking queries are used to improve consistency during reservation creation and cancellation. Row-level locking behavior depends on the database backend; SQLite does not provide the same row-level locking guarantees as PostgreSQL. Concurrent booking safety should therefore be verified against the intended production database.
+Database transactions and row-locking queries are also used during reservation creation and cancellation to improve consistency. However, row-level locking behavior depends on the database backend. SQLite does not provide the same row-level locking guarantees as PostgreSQL, so concurrent booking safety should be verified against the intended production database.
 
 ## Limitations
 
-- The project uses SQLite for local development.
-- Authentication and authorization are not currently part of the assignment's required feature set.
+- SQLite is used for local development.
+- Authentication and authorization are outside the current assignment scope.
 - Production deployment requires appropriate secret management, security settings, and database configuration.
+- Reservation update and deletion behavior should be reviewed carefully to ensure seat counts remain consistent if those operations are used.
 
 ## Author
 
-Khushi Tyagi
+**Khushi Tyagi**
 
 GitHub: https://github.com/khushityaagi/EventHub
